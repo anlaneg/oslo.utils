@@ -64,7 +64,7 @@ def import_object_ns(name_space, import_str, *args, **kwargs):
         cls = import_class(import_str)
     return cls(*args, **kwargs)
 
-
+#采用__import__导入“import_str"模块
 def import_module(import_str):
     """Import a module.
 
