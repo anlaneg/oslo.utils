@@ -2,8 +2,8 @@
 Team and repository tags
 ========================
 
-.. image:: http://governance.openstack.org/badges/oslo.utils.svg
-    :target: http://governance.openstack.org/reference/tags/index.html
+.. image:: https://governance.openstack.org/tc/badges/oslo.utils.svg
+    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
 
@@ -23,6 +23,6 @@ The oslo.utils library provides support for common utility type functions,
 such as encoding, exception handling, string manipulation, and time handling.
 
 * Free software: Apache license
-* Documentation: http://docs.openstack.org/developer/oslo.utils
-* Source: http://git.openstack.org/cgit/openstack/oslo.utils
-* Bugs: http://bugs.launchpad.net/oslo.utils
+* Documentation: https://docs.openstack.org/oslo.utils/latest/
+* Source: https://git.openstack.org/cgit/openstack/oslo.utils
+* Bugs: https://bugs.launchpad.net/oslo.utils

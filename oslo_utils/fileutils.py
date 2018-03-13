@@ -21,6 +21,7 @@ File utilities.
 
 import contextlib
 import errno
+import hashlib
 import os
 import stat
 import tempfile
@@ -103,3 +104,54 @@ def write_to_tempfile(content, path=None, suffix='', prefix='tmp'):
     finally:
         os.close(fd)
     return path
+
+
+def compute_file_checksum(path, read_chunksize=65536, algorithm='sha256'):
+    """Compute checksum of a file's contents.
+
+    :param path: Path to the file
+    :param read_chunksize: Maximum number of bytes to be read from the file
+     at once. Default is 65536 bytes or 64KB
+    :param algorithm: The hash algorithm name to use. For example, 'md5',
+     'sha256', 'sha512' and so on. Default is 'sha256'. Refer to
+     hashlib.algorithms_available for available algorithms
+    :return: Hex digest string of the checksum
+
+    .. versionadded:: 3.31.0
+    """
+    checksum = hashlib.new(algorithm)  # Raises appropriate exceptions.
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(read_chunksize), b''):
+            checksum.update(chunk)
+    return checksum.hexdigest()
+
+
+def last_bytes(path, num):
+    """Return num bytes from the end of the file and unread byte count.
+
+    Returns a tuple containing some content from the file and the
+    number of bytes that appear in the file before the point at which
+    reading started. The content will be at most ``num`` bytes, taken
+    from the end of the file. If the file is smaller than ``num``
+    bytes the entire content of the file is returned.
+
+    :param path: The file path to read
+    :param num: The number of bytes to return
+
+    :returns: (data, unread_bytes)
+
+    """
+
+    with open(path, 'rb') as fp:
+        try:
+            fp.seek(-num, os.SEEK_END)
+        except IOError as e:
+            # seek() fails with EINVAL when trying to go before the start of
+            # the file. It means that num is larger than the file size, so
+            # just go to the start.
+            if e.errno == errno.EINVAL:
+                fp.seek(0, os.SEEK_SET)
+            else:
+                raise
+        unread_bytes = fp.tell()
+        return (fp.read(), unread_bytes)

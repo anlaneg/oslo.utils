@@ -44,6 +44,7 @@ UNIT_PREFIX_EXPONENT = {
 UNIT_SYSTEM_INFO = {
     'IEC': (1024, re.compile(r'(^[-+]?\d*\.?\d+)([KMGT]i?)?(b|bit|B)$')),
     'SI': (1000, re.compile(r'(^[-+]?\d*\.?\d+)([kMGT])?(b|bit|B)$')),
+    'mixed': (None, re.compile(r'(^[-+]?\d*\.?\d+)([kKMGT]i?)?(b|bit|B)$')),
 }
 
 TRUE_STRINGS = ('1', 't', 'true', 'on', 'y', 'yes')
@@ -164,7 +165,7 @@ def is_valid_boolstr(value):
 def string_to_bytes(text, unit_system='IEC', return_int=False):
     """Converts a string into an float representation of bytes.
 
-    The units supported for IEC ::
+    The units supported for IEC / mixed::
 
         Kb(it), Kib(it), Mb(it), Mib(it), Gb(it), Gib(it), Tb(it), Tib(it)
         KB, KiB, MB, MiB, GB, GiB, TB, TiB
@@ -174,7 +175,17 @@ def string_to_bytes(text, unit_system='IEC', return_int=False):
         kb(it), Mb(it), Gb(it), Tb(it)
         kB, MB, GB, TB
 
-    Note that the SI unit system does not support capital letter 'K'
+    SI units are interpreted as power-of-ten (e.g. 1kb = 1000b).  Note
+    that the SI unit system does not support capital letter 'K'
+
+    IEC units are interpreted as power-of-two (e.g. 1MiB = 1MB =
+    1024b)
+
+    Mixed units interpret the "i" to mean IEC, and no "i" to mean SI
+    (e.g. 1kb = 1000b, 1kib == 1024b).  Additionaly, mixed units
+    interpret 'K' as power-of-ten.  This mode is not particuarly
+    useful for new code, but can help with compatability for parsers
+    such as GNU parted.
 
     :param text: String input for bytes size conversion.
     :param unit_system: Unit system for byte size conversion.
@@ -195,9 +206,22 @@ def string_to_bytes(text, unit_system='IEC', return_int=False):
         unit_prefix = match.group(2)
         if match.group(3) in ['b', 'bit']:
             magnitude /= 8
+
+        # In the mixed matcher, IEC units (with a trailing 'i') are
+        # interpreted as power-of-two, others as power-of-ten
+        if unit_system == 'mixed':
+            if unit_prefix and not unit_prefix.endswith('i'):
+                # For maximum compatability in mixed mode, we understand
+                # "K" (which is not strict SI) as "k"
+                if unit_prefix.startswith == 'K':
+                    unit_prefix = 'k'
+                base = 1000
+            else:
+                base = 1024
     else:
         msg = _('Invalid string format: %s') % text
         raise ValueError(msg)
+
     if not unit_prefix:
         res = magnitude
     else:
@@ -436,6 +460,38 @@ def check_string_length(value, name=None, min_length=0, max_length=None):
                 "%(max_length)s.") % {'name': name, 'length': length,
                                       'max_length': max_length}
         raise ValueError(msg)
+
+
+def validate_integer(value, name, min_value=None, max_value=None):
+    """Make sure that value is a valid integer, potentially within range.
+
+    :param value: value of the integer
+    :param name: name of the integer
+    :param min_value: min_value of the integer
+    :param max_value: max_value of the integer
+    :returns: integer
+    :raises: ValueError if value is an invalid integer
+
+    .. versionadded:: 3.33
+    """
+    try:
+        value = int(str(value))
+    except (ValueError, UnicodeEncodeError):
+        msg = _('%(value_name)s must be an integer'
+                ) % {'value_name': name}
+        raise ValueError(msg)
+
+    if min_value is not None and value < min_value:
+        msg = _('%(value_name)s must be >= %(min_value)d'
+                ) % {'value_name': name, 'min_value': min_value}
+        raise ValueError(msg)
+
+    if max_value is not None and value > max_value:
+        msg = _('%(value_name)s must be <= %(max_value)d'
+                ) % {'value_name': name, 'max_value': max_value}
+        raise ValueError(msg)
+
+    return value
 
 
 def split_path(path, minsegs=1, maxsegs=None, rest_with_last=False):

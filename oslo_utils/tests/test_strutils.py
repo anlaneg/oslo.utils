@@ -18,6 +18,7 @@
 import copy
 import math
 
+import ddt
 import mock
 from oslotest import base as test_base
 import six
@@ -186,6 +187,7 @@ class StringToBytesTest(test_base.BaseTestCase):
     _unit_system = [
         ('si', dict(unit_system='SI')),
         ('iec', dict(unit_system='IEC')),
+        ('mixed', dict(unit_system='mixed')),
         ('invalid_unit_system', dict(unit_system='KKK', assert_error=True)),
     ]
 
@@ -258,6 +260,14 @@ class StringToBytesTest(test_base.BaseTestCase):
                     res = getattr(units, unit_prefix)
                 else:
                     res = getattr(units, '%si' % unit_prefix)
+            elif unit_system == 'mixed':
+                # Note: this will return 'i' units as power-of-two,
+                # and other units as power-of-ten.  Additionally, for
+                # compatability a "K" is interpreted as "k" in mixed
+                # mode
+                if unit_prefix == 'K':
+                    unit_prefix = 'k'
+                res = getattr(units, unit_prefix)
             return res
 
         text = ''.join([self.sign, self.magnitude, self.unit_prefix,
@@ -804,3 +814,35 @@ class SplitByCommas(test_base.BaseTestCase):
 
     def test_with_escaped_quotes_in_row_inside_quoted(self):
         self.check(['a"b""c', 'd'], r'"a\"b\"\"c",d')
+
+
+@ddt.ddt
+class ValidateIntegerTestCase(test_base.BaseTestCase):
+
+    @ddt.unpack
+    @ddt.data({"value": 42, "name": "answer", "output": 42},
+              {"value": "42", "name": "answer", "output": 42},
+              {"value": "7", "name": "lucky", "output": 7,
+               "min_value": 7, "max_value": 8},
+              {"value": 7, "name": "lucky", "output": 7,
+               "min_value": 6, "max_value": 7},
+              {"value": 300, "name": "Spartaaa!!!", "output": 300,
+               "min_value": 300},
+              {"value": "300", "name": "Spartaaa!!!", "output": 300,
+               "max_value": 300})
+    def test_valid_inputs(self, output, value, name, **kwargs):
+        self.assertEqual(strutils.validate_integer(value, name,
+                                                   **kwargs), output)
+
+    @ddt.unpack
+    @ddt.data({"value": "im-not-an-int", "name": ''},
+              {"value": 3.14, "name": "Pie"},
+              {"value": "299", "name": "Sparta no-show",
+               "min_value": 300, "max_value": 300},
+              {"value": 55, "name": "doing 55 in a 54",
+               "max_value": 54},
+              {"value": six.unichr(129), "name": "UnicodeError",
+               "max_value": 1000})
+    def test_invalid_inputs(self, value, name, **kwargs):
+        self.assertRaises(ValueError, strutils.validate_integer,
+                          value, name, **kwargs)
